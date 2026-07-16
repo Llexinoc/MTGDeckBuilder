@@ -29,13 +29,7 @@ python app.py
 pytest -q
 ```
 
-- Notes for the grader
-- The core logic lives in `deckbuilder/` (modular). Run `app.py` to start the Flask server for grading and local testing.
-- Tests: 18 passing (included in the `tests/` folder).
-- No secrets are committed. If optional external services are used, provide credentials via environment variables locally.
 
-Submission blurb (copy to assignment form):
-"This submission includes a Flask-based UI and API (`app.py` + `deckbuilder/` package) that generates MTG decks from a theme. Tests are included and pass locally. See run instructions in `README.md`."
 # ManaForge — Themed MTG Deckbuilder
 
 Type a description of the deck you want ("a Red Rising rebellion against a
