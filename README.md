@@ -32,7 +32,7 @@ pytest -q
 - Notes for the grader
 - The core logic lives in `deckbuilder/` (modular). Run `app.py` to start the Flask server for grading and local testing.
 - Tests: 18 passing (included in the `tests/` folder).
-- No API keys are committed. If you want to enable live Scryfall/LLM features, set the environment variable `ANTHROPIC_API_KEY` before running.
+- No secrets are committed. If optional external services are used, provide credentials via environment variables locally.
 
 Submission blurb (copy to assignment form):
 "This submission includes a Flask-based UI and API (`app.py` + `deckbuilder/` package) that generates MTG decks from a theme. Tests are included and pass locally. See run instructions in `README.md`."
@@ -79,9 +79,7 @@ Turns your freeform description into structured deck parameters:
   from the language of the theme.
 - **Flavor search terms** (e.g. "rebel", "revolt", "soldier", "sacrifice") used
   to find on-theme cards.
-If an `ANTHROPIC_API_KEY` is set, an LLM produces the same structured output
-with richer understanding; otherwise a built-in heuristic engine runs so the app
-always works offline.
+The interpreter uses a built-in heuristic engine so the app works offline.
 
 **2. Scryfall client** — `deckbuilder/scryfall.py`
 Queries the live Scryfall API (correct `User-Agent`/`Accept` headers, <10 req/s
@@ -110,15 +108,11 @@ explanation of *why* each choice was made — is rendered by the web UI
 - **Commander** — 100-card singleton deck led by a themed legendary creature.
 - **Constructed (60-card)** — a 60-card deck that runs up to 4 copies of a card.
 
-## Optional: LLM enrichment
+## Optional: Online data
 
-```bash
-# PowerShell
-$env:ANTHROPIC_API_KEY = "sk-ant-..."
-python app.py
-```
-With a key set, the theme interpreter uses an LLM for a more nuanced reading of
-the description. Without one, the heuristic engine is used automatically.
+The app queries Scryfall to fetch card data by default. If you have no internet,
+use the "Offline sample data" option in the UI to build from the bundled card
+pool instead.
 
 ## Testing
 
