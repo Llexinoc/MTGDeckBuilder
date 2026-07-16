@@ -1,13 +1,14 @@
-"""Flask API for the MTG Theme Deckbuilder.
+"""Flask web app for the MTG Theme Deckbuilder.
 
 Run:
     pip install -r requirements.txt
     python app.py
+    # open http://127.0.0.1:5000
 
 Endpoints:
-    GET  /               -> API info
+    GET  /               -> the web interface
     POST /api/build      -> {description, format, offline} -> deck JSON
-    GET  /api/health     -> liveness check
+    GET  /api/health     -> liveness + whether an LLM key is configured
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ import logging
 import os
 import traceback
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request
 
 from deckbuilder.engine import build_deck
 
@@ -28,13 +29,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
-    return jsonify({
-        "app": "MTG Theme Deckbuilder",
-        "endpoints": {
-            "/api/health": "GET - health check",
-            "/api/build": "POST - build a deck from a theme"
-        }
-    })
+    return render_template("index.html")
 
 
 @app.route("/api/health")
