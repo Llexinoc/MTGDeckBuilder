@@ -16,10 +16,10 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-3. Run the single-file demo (recommended for grading):
+3. Run the app:
 
 ```powershell
-python combined_app.py
+python app.py
 # open http://127.0.0.1:5000
 ```
 
@@ -29,13 +29,13 @@ python combined_app.py
 pytest -q
 ```
 
-Notes for the grader
-- The core logic lives in `deckbuilder/` (modular) and `combined_app.py` is a single-file demo that replicates that logic for quick inspection and offline runs.
+- Notes for the grader
+- The core logic lives in `deckbuilder/` (modular). Run `app.py` to start the Flask server for grading and local testing.
 - Tests: 18 passing (included in the `tests/` folder).
 - No API keys are committed. If you want to enable live Scryfall/LLM features, set the environment variable `ANTHROPIC_API_KEY` before running.
 
 Submission blurb (copy to assignment form):
-"This submission includes a Flask-based UI and API (`combined_app.py` demo + `deckbuilder/` package) that generates MTG decks from a theme. Tests are included and pass locally. See run instructions in `README.md` and the live demo example in `combined_app.py`."
+"This submission includes a Flask-based UI and API (`app.py` + `deckbuilder/` package) that generates MTG decks from a theme. Tests are included and pass locally. See run instructions in `README.md`."
 # ManaForge — Themed MTG Deckbuilder
 
 Type a description of the deck you want ("a Red Rising rebellion against a
