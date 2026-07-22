@@ -21,7 +21,7 @@ const $ = (id) => document.getElementById(id);
 
 document.addEventListener("DOMContentLoaded", () => {
   fetch("/api/health").then(r => r.json()).then(h => {
-    $("llm-badge").textContent = h.llm_enabled ? "LLM enrichment: on" : "Logic engine: heuristic";
+    $("llm-badge").textContent = h.llm?.available ? "LLM enrichment: on" : "Logic engine: heuristic";
   }).catch(() => {});
 
   document.querySelectorAll(".chip").forEach(btn => {
@@ -74,10 +74,13 @@ function render(data) {
   const s = data.stats;
 
   // Identity panel
+  console.log('Colors received:', p.colors, 'Length:', p.colors.length);
   const colorDots = p.colors.map(c => {
     const info = COLOR_INFO[c] || { name: c, cls: "" };
+    console.log(`Rendering color ${c}:`, info);
     return `<span class="color-dot"><span class="pip ${info.cls}"></span>${info.name}</span>`;
-  }).join("");
+  }).join("");  
+  console.log('Color dots HTML:', colorDots);
   $("identity-panel").innerHTML = `
     <h3>Deck identity</h3>
     <div class="identity-colors">${colorDots}</div>

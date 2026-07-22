@@ -247,14 +247,105 @@ def parse_theme_structure(description: str) -> dict:
     }
 
 
+def _extract_explicit_colors(text: str) -> list[str]:
+    """Extract explicitly mentioned colors from text.
+    
+    Looks for patterns like:
+    - "red, white, green"
+    - "red and white"
+    - "red/white/green"
+    - "RWG"
+    - Single color mentions with "commander"
+    
+    Returns list of WUBRG letters, or empty list if no explicit colors found.
+    Skips colors preceded by "no", "without", "not", "except", or "-".
+    """
+    low = text.lower()
+    explicit_colors = []
+    
+    # Look for color names separated by commas, "and", or slashes
+    color_pattern = r'\b(white|blue|black|red|green|azorius|dimir|rakdos|gruul|selesnya|orzhov|izzet|golgari|boros|simic|mardu|jeskai|abzan|sultai|temur|bant|esper|grixis|naya|jund)\b'
+    
+    # Helper to check if a color mention is negated
+    def is_negated(text_lower, match_start):
+        # Look back up to 15 chars for negation keywords
+        lookback = max(0, match_start - 15)
+        context_before = text_lower[lookback:match_start]
+        # Check for negation patterns
+        if re.search(r'\b(no|without|not|except|minus)\s*$', context_before):
+            return True
+        if context_before.rstrip().endswith('-'):
+            return True
+        return False
+    
+    # First, find all color mentions
+    all_mentions = []
+    for match in re.finditer(color_pattern, low):
+        color_name = match.group(1)
+        if color_name in COLOR_NAMES and not is_negated(low, match.start()):
+            all_mentions.append(match.start())
+    
+    # Check if multiple colors are mentioned close together (within 50 chars) or connected by "and"
+    if len(all_mentions) > 1:
+        # If colors are mentioned with conjunctions or punctuation, treat as explicit group
+        for match in re.finditer(color_pattern, low):
+            color_name = match.group(1)
+            if not is_negated(low, match.start()):
+                letters = COLOR_NAMES.get(color_name, "")
+                for letter in letters:
+                    if letter not in explicit_colors:
+                        explicit_colors.append(letter)
+    else:
+        # Check for standalone color mentions with "commander"
+        for match in re.finditer(color_pattern, low):
+            color_name = match.group(1)
+            if is_negated(low, match.start()):
+                continue
+            # Look within 100 chars for "commander" keyword
+            start = max(0, match.start() - 100)
+            end = min(len(low), match.end() + 100)
+            context = low[start:end]
+            if re.search(r'\bcommander\b', context):
+                letters = COLOR_NAMES.get(color_name, "")
+                for letter in letters:
+                    if letter not in explicit_colors:
+                        explicit_colors.append(letter)
+    
+    return explicit_colors
+
+
 def _score_colors(text):
     scores = {c: 0.0 for c in "WUBRG"}
     low = text.lower()
-    for name, letters in COLOR_NAMES.items():
-        if re.search(r"\b" + name + r"\b", low):
+    
+    # First, give explicit colors a big boost
+    explicit = _extract_explicit_colors(text)
+    for color in explicit:
+        scores[color] += 10.0  # Strong boost for explicitly mentioned colors
+    
+    # Helper to check if a color mention is negated
+    def is_negated(text_lower, match_start):
+        # Look back up to 15 chars for negation keywords
+        lookback = max(0, match_start - 15)
+        context_before = text_lower[lookback:match_start]
+        # Check for negation patterns
+        if re.search(r'\b(no|without|not|except|minus)\s*$', context_before):
+            return True
+        if context_before.rstrip().endswith('-'):
+            return True
+        return False
+    
+    # Score by explicit color name mentions (but skip negated ones)
+    color_pattern = r'\b(white|blue|black|red|green|azorius|dimir|rakdos|gruul|selesnya|orzhov|izzet|golgari|boros|simic|mardu|jeskai|abzan|sultai|temur|bant|esper|grixis|naya|jund)\b'
+    for match in re.finditer(color_pattern, low):
+        color_name = match.group(1)
+        if color_name in COLOR_NAMES and not is_negated(low, match.start()):
+            letters = COLOR_NAMES.get(color_name, "")
             weight = 4.0 if len(letters) > 1 else 3.0
             for L in letters:
                 scores[L] += weight
+    
+    # Score by color concepts
     for color, words in COLOR_CONCEPTS.items():
         for w in words:
             if w in low:
@@ -262,7 +353,36 @@ def _score_colors(text):
     return scores
 
 
-def _pick_colors(scores, max_colors=3):
+def _pick_colors(scores, max_colors=3, explicit_colors=None):
+    """Pick up to max_colors based on scores, always including explicit colors.
+    
+    Args:
+        scores: dict of color -> score
+        max_colors: maximum number of colors to return (default 3)
+        explicit_colors: list of colors that were explicitly mentioned (always included)
+    
+    Returns:
+        list of color letters, up to max_colors
+    """
+    # Ensure explicit colors are always included (up to max_colors)
+    if explicit_colors:
+        explicit_list = [c for c in explicit_colors if c in scores]
+        if len(explicit_list) > 0:
+            # Sort explicit colors by their scores to maintain consistency
+            explicit_sorted = sorted(explicit_list, key=lambda c: scores.get(c, 0), reverse=True)
+            # If we have fewer colors than max, add more from other colors
+            if len(explicit_sorted) < max_colors:
+                other_colors = sorted(
+                    [(c, s) for c, s in scores.items() if c not in explicit_sorted and s > 0],
+                    key=lambda x: x[1], reverse=True
+                )
+                for color, _ in other_colors:
+                    if len(explicit_sorted) >= max_colors:
+                        break
+                    explicit_sorted.append(color)
+            return explicit_sorted[:max_colors]
+    
+    # Fallback: standard score-based selection
     ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
     ranked = [(c, s) for c, s in ranked if s > 0]
     if not ranked:
@@ -560,7 +680,9 @@ def interpret(description, use_llm=True, references=None, no_network=False):
         for c in matched_colors:
             scores[c] += 2.0
     
-    colors = _pick_colors(scores)
+    # Get explicitly mentioned colors for priority inclusion
+    explicit = _extract_explicit_colors(enriched)
+    colors = _pick_colors(scores, explicit_colors=explicit if explicit else None)
     archetype = _pick_archetype(enriched, colors, themes)
 
     # Step 3: Text search terms (only if no direct named match)

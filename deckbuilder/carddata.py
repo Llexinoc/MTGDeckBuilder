@@ -392,6 +392,7 @@ def process_card(card: dict, collapse_all_cards: bool = False) -> dict | None:
         "legal_commander": card.get("legalities", {}).get("commander") == "legal",
         "legal_standard": card.get("legalities", {}).get("standard") == "legal",
         "can_be_commander": can_be_commander,
+        "game_changer": bool(card.get("game_changer", False)),
         "image_uris": card.get("image_uris", {}),
         "scryfall_uri": card.get("scryfall_uri"),
         "price_usd": price_usd,
@@ -442,7 +443,7 @@ def _build_db(
             oracle_id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             mana_cost TEXT,
-            cmc INTEGER,
+            cmc REAL,
             type_line TEXT,
             oracle_text TEXT,
             power TEXT,
@@ -457,6 +458,7 @@ def _build_db(
             legal_commander BOOLEAN,
             legal_standard BOOLEAN,
             can_be_commander BOOLEAN,
+            game_changer BOOLEAN,
             image_url TEXT,
             price_usd REAL,
             updated_at TEXT
@@ -529,8 +531,8 @@ def _insert_card(conn: sqlite3.Connection, card: dict, updated_at: str | None) -
             oracle_id, name, mana_cost, cmc, type_line, oracle_text,
             power, toughness, loyalty, color_identity, keywords, "set", rarity,
             released_at, edhrec_rank, legal_commander, legal_standard,
-            can_be_commander, image_url, price_usd, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            can_be_commander, game_changer, image_url, price_usd, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         card["oracle_id"],
         card["name"],
@@ -550,6 +552,7 @@ def _insert_card(conn: sqlite3.Connection, card: dict, updated_at: str | None) -
         card["legal_commander"],
         card["legal_standard"],
         card["can_be_commander"],
+        card["game_changer"],
         card["image_uris"].get("normal") if card["image_uris"] else None,
         card["price_usd"],
         updated_at,

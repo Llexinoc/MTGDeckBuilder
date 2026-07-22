@@ -8,12 +8,17 @@ load automatically and don't need pasting.
 
 | Prompt | Purpose | Status |
 |---|---|---|
+| `00-git-hygiene.md` | Establish git history, commit rules, accurate reporting | run first |
 | `01-card-data-ingest.md` | Build `deckbuilder/carddata.py` and the SQLite index | done |
 | `02-audit-scryfall-calls.md` | Read-only audit of how the app calls Scryfall | done |
 | `03-offline-and-429.md` | Split the `offline` flag, add 429 retry | |
 | `04-theme-resolution.md` | Named-match-first resolution, compound theme parsing | |
 | `05-images-and-cleanup.md` | Render card art, remove unused files | |
 | `06-brewbot-rebrand.md` | Rename to Brewbot, theme the UI | |
+| `07-deck-composition.md` | Legal 60/100-card decks, curve and mana balance | |
+| `08-commander-brackets.md` | Bracket 1–5 power level, Game Changers, combo detection | after 07 |
+| `09-card-types-and-reranking.md` | Type balance, LLM re-ranking of candidates | after 07 |
+| `10-type-sections-and-deck-research.md` | Decklist sections by type, EDHREC deck research | after 09 |
 
 ## Order
 

@@ -129,6 +129,34 @@ def _image_from(raw: dict) -> str | None:
     return None
 
 
+def extract_card_types(type_line: str) -> dict:
+    """Extract detailed card types from type_line.
+    
+    Returns a dict with boolean flags for:
+    - is_instant, is_sorcery, is_artifact, is_enchantment, is_planeswalker, is_battle
+    - is_creature, is_land
+    
+    Also returns:
+    - card_type_list: list of all type keywords found
+    """
+    t = (type_line or "").lower()
+    # Split before dash (suptertypes and types) from abilities (subtypes after dash)
+    main_part = t.split("—")[0].strip()
+    
+    return {
+        "is_instant": "instant" in t,
+        "is_sorcery": "sorcery" in t,
+        "is_artifact": "artifact" in t,
+        "is_enchantment": "enchantment" in t,
+        "is_planeswalker": "planeswalker" in t,
+        "is_battle": "battle" in t,
+        "is_creature": "creature" in t,
+        "is_land": "land" in t,
+        "card_type_list": [word.capitalize() for word in main_part.split() 
+                           if word and word not in ("legendary", "basic", "snow", "world")],
+    }
+
+
 def normalize(raw: dict) -> dict:
     """Turn a raw Scryfall (or sample) record into a compact Card dict."""
     # Handle card_faces for double-faced cards
@@ -156,6 +184,8 @@ def normalize(raw: dict) -> dict:
         )
     
     types = re.findall(r"[A-Za-z]+", type_line.split("—")[0])
+    card_types = extract_card_types(type_line)
+    
     return {
         "name": raw.get("name", "Unknown"),
         "mana_cost": mana_cost,
@@ -174,10 +204,18 @@ def normalize(raw: dict) -> dict:
         "produced_mana": raw.get("produced_mana", []) or [],
         "legalities": raw.get("legalities", {}) or {},
         "scryfall_uri": raw.get("scryfall_uri", ""),
+        "game_changer": bool(raw.get("game_changer", False)),
         "roles": detect_roles(type_line, oracle),
         "is_land": "Land" in type_line,
         "is_creature": "Creature" in type_line,
         "is_legendary": "Legendary" in type_line,
+        # Detailed card type tracking (Part 1)
+        "is_instant": card_types["is_instant"],
+        "is_sorcery": card_types["is_sorcery"],
+        "is_artifact": card_types["is_artifact"],
+        "is_enchantment": card_types["is_enchantment"],
+        "is_planeswalker": card_types["is_planeswalker"],
+        "is_battle": card_types["is_battle"],
     }
 
 
@@ -197,6 +235,8 @@ def build_query(
     parts: list[str] = []
     ci = "".join(c for c in color_identity if c in WUBRG)
     if ci:
+        # Use id<= to find cards whose color_identity is a SUBSET of the requested colors
+        # e.g., id<=RUB finds R, U, B, RU, RB, UB, RUB, and colorless cards
         parts.append(f"id<={ci}")
     else:
         parts.append("id:c")  # colorless
@@ -529,18 +569,53 @@ class ScryfallClient:
         return None
 
     def find_commander(self, color_identity, theme_terms, fmt="commander", set_codes=None):
-        """Find a legendary creature to lead the deck, matching colors/theme."""
+        """Find a legendary creature to lead the deck, matching colors/theme.
+        
+        IMPORTANT: The commander's color_identity must CONTAIN all requested colors.
+        This is a hard, non-negotiable filter. If a user specifies "red, black, blue",
+        the commander MUST have all three colors (e.g., Grixis, 4-color with R/B/U, etc.),
+        but can NEVER be missing even one of them (e.g., pure Blue or Red-Black only).
+        """
+        cands: list[dict] = []
+        
+        # For multicolor searches, we need to fetch more results because monocolor
+        # commanders rank higher by EDHREC, pushing multicolor ones further down
+        is_multicolor = len([c for c in color_identity if c in WUBRG]) > 1
+        fetch_limit = 240 if is_multicolor else 80
+        
+        # First try: search with theme terms
         cands = self.find_cards(
             color_identity, card_type="Legendary Creature",
-            oracle_terms=theme_terms or None, fmt=fmt, order="edhrec", limit=40,
+            oracle_terms=theme_terms or None, fmt=fmt, order="edhrec", limit=fetch_limit,
             set_codes=set_codes,
         )
+        
+        # If no theme matches, search more broadly
         if not cands:
-            cands = self.find_cards(color_identity, card_type="Legendary Creature",
-                                    fmt=fmt, order="edhrec", limit=40,
-                                    set_codes=set_codes)
+            cands = self.find_cards(
+                color_identity, card_type="Legendary Creature",
+                fmt=fmt, order="edhrec", limit=fetch_limit,
+                set_codes=set_codes
+            )
+        
         cands = [c for c in cands if self._is_commander_legal(c)]
-        # Prefer a commander whose identity uses all requested colors.
+        
+        # Hard constraint: requested colors must be a SUBSET of commander's color_identity
+        # Commander MUST contain all requested colors (but can have more)
         want = set(color_identity)
-        cands.sort(key=lambda c: (-(len(set(c["color_identity"]) & want)), c["edhrec_rank"]))
+        cands = [c for c in cands if want.issubset(set(c.get("color_identity", [])))]
+        
+        if not cands:
+            # No legal commander found containing all requested colors
+            # This is a hard failure - do not fall back to off-color commanders
+            logger.warning(f"No legal commander found containing all colors {color_identity}")
+            return None
+        
+        # Prefer a commander whose identity uses all or most of the requested colors
+        # This rewards commanders like "Red-White-Green" over "Red-White" when RWG is requested
+        cands.sort(key=lambda c: (
+            -len(set(c["color_identity"]) & want),  # Prefer commanders using more requested colors
+            c["edhrec_rank"]  # Then prefer well-known cards
+        ))
+        
         return cands[0] if cands else None
