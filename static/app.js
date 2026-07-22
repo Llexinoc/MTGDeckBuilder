@@ -74,13 +74,10 @@ function render(data) {
   const s = data.stats;
 
   // Identity panel
-  console.log('Colors received:', p.colors, 'Length:', p.colors.length);
   const colorDots = p.colors.map(c => {
     const info = COLOR_INFO[c] || { name: c, cls: "" };
-    console.log(`Rendering color ${c}:`, info);
     return `<span class="color-dot"><span class="pip ${info.cls}"></span>${info.name}</span>`;
-  }).join("");  
-  console.log('Color dots HTML:', colorDots);
+  }).join("");
   $("identity-panel").innerHTML = `
     <h3>Deck identity</h3>
     <div class="identity-colors">${colorDots}</div>

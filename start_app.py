@@ -71,6 +71,11 @@ def main():
             return 1
         else:
             print("    ✓ Dependencies installed")
+        
+        # Update python_exe for UV environment
+        venv_python = os.path.join(".venv", "Scripts", "python.exe") if sys.platform == "win32" else os.path.join(".venv", "bin", "python")
+        if os.path.exists(venv_python):
+            sys.executable = venv_python
     else:
         # Standard pip approach
         print("\n[2/4] Installing dependencies...")
@@ -82,13 +87,14 @@ def main():
     
     # Step 3: Sync card data
     print("\n[3/4] Checking card database...")
-    if not os.path.exists("data/cards.sqlite"):
+    db_path = "data/cards.sqlite" if os.path.exists("data/cards.sqlite") else "data/cards.db"
+    if not os.path.exists(db_path):
         print("    Card database not found - syncing from Scryfall...")
         if not run_command(f"{sys.executable} -m deckbuilder.carddata sync", "Syncing card data"):
             print("    WARNING: Could not sync card data (app may work with live API)")
     else:
         try:
-            db_size_mb = os.path.getsize("data/cards.sqlite") / (1024*1024)
+            db_size_mb = os.path.getsize(db_path) / (1024*1024)
             print(f"    ✓ Card database found ({db_size_mb:.1f} MB)")
         except:
             print("    ✓ Card database exists")
