@@ -1,6 +1,8 @@
+﻿*.pyc
 __pycache__/
-*.pyc
-data/
-.venv/
-venv/
+.pytest_cache/
+*.db
 .env
+.venv
+venv/
+data/
